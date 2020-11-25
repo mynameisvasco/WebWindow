@@ -1,4 +1,4 @@
-# WebWindow
+# WebWindowX
 This fork of WebWindow provides new features to the library and
 removes completely Blazor support.
 
