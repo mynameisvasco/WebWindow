@@ -6,11 +6,11 @@ For information, see [this blog post](https://blog.stevensanderson.com/2019/11/1
 
 # Usage instructions
 
-Unless you want to change the `WebWindow` library itself, you do not need to build this repo yourself. If you just want to use it in an app, grab the [prebuilt NuGet package](https://www.nuget.org/packages/WebWindow) or follow [these 'hello world' example steps](https://blog.stevensanderson.com/2019/11/18/2019-11-18-webwindow-a-cross-platform-webview-for-dotnet-core/).
+Unless you want to change the `WebWindowX` library itself, you do not need to build this repo yourself. If you just want to use it in an app, grab the [prebuilt NuGet package](https://www.nuget.org/packages/WebWindowX) or follow [these 'hello world' example steps](https://blog.stevensanderson.com/2019/11/18/2019-11-18-webwindow-a-cross-platform-webview-for-dotnet-core/).
 
 # How to build this repo
 
-If you want to build the `WebWindow` library itself, you will need:
+If you want to build the `WebWindowX` library itself, you will need:
 
  * If you're on Windows:
    * Use Visual Studio with C++ support enabled. You *must* build in x64 configuration (*not* AnyCPU, which is the default).
