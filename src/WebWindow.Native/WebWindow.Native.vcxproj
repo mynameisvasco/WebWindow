@@ -148,8 +148,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Exports.cpp" />
-    <ClCompile Include="WebWindow.Linux.cpp" />
-    <ClCompile Include="WebWindow.Windows.cpp" />
+    <ClCompile Include="./WebWindows.Native.Linux/WebWindow.Linux.cpp" />
+    <ClCompile Include="./WebWindows.Native.Windows/WebWindow.Windows.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WebWindow.h" />

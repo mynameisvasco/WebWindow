@@ -61,19 +61,9 @@ jobs:
         inputs:
           script: "dotnet build -c $(buildConfiguration) src/WebWindow/WebWindow.csproj /t:BuildNonWindowsNative"
       - task: CmdLine@2
-        condition: eq(variables.rid, 'windows-x64')
-        displayName: "Build .js artifact for WebWindow.Blazor.JS"
-        inputs:
-          script: "dotnet build -c $(buildConfiguration) src/WebWindow.Blazor.JS"
-      - task: CmdLine@2
         displayName: "dotnet pack WebWindow"
         inputs:
           script: "dotnet pack -c $(buildConfiguration) src/WebWindow/WebWindow.csproj /p:VersionPrefix=$(versionprefix) /p:VersionSuffix=$(Build.BuildNumber)"
-      - task: CmdLine@2
-        condition: eq(variables.rid, 'windows-x64')
-        displayName: "dotnet pack WebWindow.Blazor"
-        inputs:
-          script: "dotnet pack -c $(buildConfiguration) src/WebWindow.Blazor/WebWindow.Blazor.csproj /p:VersionPrefix=$(versionprefix) /p:VersionSuffix=$(Build.BuildNumber)"
       - task: PublishBuildArtifacts@1
         inputs:
           PathtoPublish: "artifacts"
@@ -101,10 +91,6 @@ jobs:
         displayName: "Merge .nupkg files"
         inputs:
           script: "sudo apt install zipmerge && mkdir combined && zipmerge combined/WebWindow.$(versionprefix)-$(Build.BuildNumber).nupkg artifacts/*/WebWindow.$(versionprefix)-$(Build.BuildNumber).nupkg"
-      - task: CmdLine@2
-        displayName: "Copy WebWindow.Blazor nupkg to output"
-        inputs:
-          script: "cp artifacts/artifacts-windows-x64/WebWindow.Blazor.*.nupkg combined/"
       - task: PublishBuildArtifacts@1
         inputs:
           PathtoPublish: "combined"

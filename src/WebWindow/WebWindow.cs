@@ -473,11 +473,11 @@ namespace WebWindows
         public void SetIconFile(string filename) => WebWindow_SetIconFile(_nativeWebWindow, Path.GetFullPath(filename));
 
         /**
-        *   This is an experimental feature.
-        *       - On macOs you need to bundle you executable into a .app, you
-                also need to codesign your .app, otherwise notifications won't work.
+        *   On macOs you need to bundle you executable into a .app, you
+        *   also need to codesign your .app, otherwise notifications won't work.
         */
-        public void ShowNotification(string title, string message) {
+        public void ShowNotification(string title, string message)
+        {
             WebWindow_ShowNotification(_nativeWebWindow, title, message);
         }
     }
