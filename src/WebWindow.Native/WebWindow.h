@@ -11,7 +11,7 @@
 #include <WebView2.h>
 typedef const wchar_t *AutoString;
 #else
-#ifdef OS_LINUX
+#if defined(linux) || defined(LINUX)
 #include <gtk/gtk.h>
 #endif
 typedef char *AutoString;
@@ -40,11 +40,11 @@ typedef void (*MovedCallback)(int x, int y);
 class WebWindow
 {
 private:
-	ToastHandler *toastHandler;
 	WebMessageReceivedCallback _webMessageReceivedCallback;
 	MovedCallback _movedCallback;
 	ResizedCallback _resizedCallback;
 #ifdef _WIN32
+	ToastHandler *toastHandler;
 	static HINSTANCE _hInstance;
 	HWND _hWnd;
 	WebWindow *_parent;
@@ -53,7 +53,7 @@ private:
 	wil::com_ptr<ICoreWebView2Controller> _webviewController;
 	std::map<std::wstring, WebResourceRequestedCallback> _schemeToRequestHandler;
 	void AttachWebView();
-#elif OS_LINUX
+#elif linux || LINUX
 	GtkWidget *_window;
 	GtkWidget *_webview;
 #elif OS_MAC

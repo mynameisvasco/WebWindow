@@ -1,6 +1,6 @@
 // For this to build on WSL (Ubuntu 18.04) you need to:
 //  sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-dev
-#ifdef OS_LINUX
+#if defined(linux) || defined(LINUX)
 #include "../WebWindow.h"
 #include <mutex>
 #include <condition_variable>
@@ -40,7 +40,6 @@ WebWindow::WebWindow(AutoString title, WebWindow *parent, WebMessageReceivedCall
 	_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_default_size(GTK_WINDOW(_window), 900, 600);
 	SetTitle(title);
-
 	if (parent == NULL)
 	{
 		g_signal_connect(G_OBJECT(_window), "destroy",
@@ -347,7 +346,6 @@ void WebWindow::ShowNotification(AutoString title, AutoString message)
 		nullptr);
 	notify_notification_set_icon_from_pixbuf(notification, appIcon);
 	notify_notification_show(notification, nullptr);
-	delete notification;
 }
 
 #endif
