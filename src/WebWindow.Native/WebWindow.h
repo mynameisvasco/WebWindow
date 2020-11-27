@@ -3,7 +3,8 @@
 
 #ifdef _WIN32
 #include <Windows.h>
-#include <wrl/event.h>
+#include <stdlib.h>
+#include <wrl.h>
 #include <map>
 #include <string>
 #include <wil/com.h>
@@ -14,6 +15,10 @@ typedef const wchar_t *AutoString;
 #include <gtk/gtk.h>
 #endif
 typedef char *AutoString;
+#endif
+
+#ifdef _WIN32
+class ToastHandler;
 #endif
 
 struct Monitor
@@ -35,6 +40,7 @@ typedef void (*MovedCallback)(int x, int y);
 class WebWindow
 {
 private:
+	ToastHandler *toastHandler;
 	WebMessageReceivedCallback _webMessageReceivedCallback;
 	MovedCallback _movedCallback;
 	ResizedCallback _resizedCallback;
@@ -42,8 +48,9 @@ private:
 	static HINSTANCE _hInstance;
 	HWND _hWnd;
 	WebWindow *_parent;
-	wil::com_ptr<IWebView2Environment3> _webviewEnvironment;
-	wil::com_ptr<IWebView2WebView5> _webviewWindow;
+	wil::com_ptr<ICoreWebView2Environment> _webviewEnvironment;
+	wil::com_ptr<ICoreWebView2> _webviewWindow;
+	wil::com_ptr<ICoreWebView2Controller> _webviewController;
 	std::map<std::wstring, WebResourceRequestedCallback> _schemeToRequestHandler;
 	void AttachWebView();
 #elif OS_LINUX

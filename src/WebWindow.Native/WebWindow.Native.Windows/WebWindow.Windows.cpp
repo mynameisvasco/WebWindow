@@ -6,11 +6,34 @@
 #include <comdef.h>
 #include <atomic>
 #include <Shlwapi.h>
+#include <dwmapi.h>
+#include <wintoastlib.h>
+#include <ToastHandler.hpp>
 
 #define WM_USER_SHOWMESSAGE (WM_USER + 0x0001)
 #define WM_USER_INVOKE (WM_USER + 0x0002)
 
+/*struct ACCENTPOLICY {
+	int nAccentState;
+	int nFlags;
+	int nColor;
+	int nAnimationId;
+};
+struct WINCOMPATTRDATA {
+	int nAttribute;
+	PVOID pData;
+	ULONG ulDataSize;
+};
+
+enum AccentTypes {
+	ACCENT_DISABLE = 0,
+	ACCENT_ENABLE_GRADIENT = 1,
+	ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
+	ACCENT_ENABLE_BLURBEHIND = 3
+};
+*/
 using namespace Microsoft::WRL;
+using namespace WinToastLib;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LPCWSTR CLASS_NAME = L"WebWindow";
@@ -52,7 +75,7 @@ WebWindow::WebWindow(AutoString title, WebWindow* parent, WebMessageReceivedCall
 	_webMessageReceivedCallback = webMessageReceivedCallback;
 	_parent = parent;
 	_hWnd = CreateWindowEx(
-		0,                              // Optional window styles.
+		WS_EX_NOREDIRECTIONBITMAP,                              // Optional window styles.
 		CLASS_NAME,                     // Window class
 		title,							// Window text
 		WS_OVERLAPPEDWINDOW,            // Window style
@@ -66,10 +89,15 @@ WebWindow::WebWindow(AutoString title, WebWindow* parent, WebMessageReceivedCall
 		this        // Additional application data
 	);
 	hwndToWebWindow[_hWnd] = this;
+	WinToast::instance()->setAppName(title);
+    WinToast::instance()->setAppUserModelId(title);
+	WinToast::instance()->initialize();
+	this->toastHandler = new ToastHandler(this);
 }
 
-// Needn't to release the handles.
-WebWindow::~WebWindow() {}
+WebWindow::~WebWindow() {
+	delete this->toastHandler;
+}
 
 HWND WebWindow::getHwnd()
 {
@@ -142,11 +170,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void WebWindow::RefitContent()
 {
-	if (_webviewWindow)
+	if (_webviewController)
 	{
 		RECT bounds;
 		GetClientRect(_hWnd, &bounds);
-		_webviewWindow->put_Bounds(bounds);
+		_webviewController->put_Bounds(bounds);
 	}
 }
 
@@ -162,7 +190,7 @@ void WebWindow::Show()
 	// Strangely, it only works to create the webview2 *after* the window has been shown,
 	// so defer it until here. This unfortunately means you can't call the Navigate methods
 	// until the window is shown.
-	if (!_webviewWindow)
+	if (!_webviewController)
 	{
 		AttachWebView();
 	}
@@ -206,9 +234,10 @@ void WebWindow::AttachWebView()
 	std::atomic_flag flag = ATOMIC_FLAG_INIT;
 	flag.test_and_set();
 
-	HRESULT envResult = CreateWebView2EnvironmentWithDetails(nullptr, nullptr, nullptr,
-		Callback<IWebView2CreateWebView2EnvironmentCompletedHandler>(
-			[&, this](HRESULT result, IWebView2Environment* env) -> HRESULT {
+	HRESULT envResult = CreateCoreWebView2EnvironmentWithOptions(nullptr, nullptr, nullptr,
+		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+			[&, this](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+				if (result != S_OK) { return result; }
 				HRESULT envResult = env->QueryInterface(&_webviewEnvironment);
 				if (envResult != S_OK)
 				{
@@ -216,37 +245,41 @@ void WebWindow::AttachWebView()
 				}
 
 				// Create a WebView, whose parent is the main window hWnd
-				env->CreateWebView(_hWnd, Callback<IWebView2CreateWebViewCompletedHandler>(
-					[&, this](HRESULT result, IWebView2WebView* webview) -> HRESULT {
+				env->CreateCoreWebView2Controller(_hWnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+					[&, this](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+
 						if (result != S_OK) { return result; }
-						result = webview->QueryInterface(&_webviewWindow);
-						if (result != S_OK) { return result; }
+						HRESULT envResult = controller->QueryInterface(&_webviewController);
+						if (envResult != S_OK)
+						{
+							return envResult;
+						}
+						_webviewController->get_CoreWebView2(&_webviewWindow);
 
 						// Add a few settings for the webview
 						// this is a redundant demo step as they are the default settings values
-						IWebView2Settings* Settings;
+						ICoreWebView2Settings* Settings;
 						_webviewWindow->get_Settings(&Settings);
 						Settings->put_IsScriptEnabled(TRUE);
 						Settings->put_AreDefaultScriptDialogsEnabled(TRUE);
 						Settings->put_IsWebMessageEnabled(TRUE);
-
 						// Register interop APIs
 						EventRegistrationToken webMessageToken;
 						_webviewWindow->AddScriptToExecuteOnDocumentCreated(L"window.external = { sendMessage: function(message) { window.chrome.webview.postMessage(message); }, receiveMessage: function(callback) { window.chrome.webview.addEventListener(\'message\', function(e) { callback(e.data); }); } };", nullptr);
-						_webviewWindow->add_WebMessageReceived(Callback<IWebView2WebMessageReceivedEventHandler>(
-							[this](IWebView2WebView* webview, IWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+						_webviewWindow->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+							[this](ICoreWebView2* webview, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
 								wil::unique_cotaskmem_string message;
-								args->get_WebMessageAsString(&message);
+								args->TryGetWebMessageAsString(&message);
 								_webMessageReceivedCallback(message.get());
 								return S_OK;
 							}).Get(), &webMessageToken);
 
 						EventRegistrationToken webResourceRequestedToken;
-						_webviewWindow->AddWebResourceRequestedFilter(L"*", WEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
-						_webviewWindow->add_WebResourceRequested(Callback<IWebView2WebResourceRequestedEventHandler>(
-							[this](IWebView2WebView* sender, IWebView2WebResourceRequestedEventArgs* args)
+						_webviewWindow->AddWebResourceRequestedFilter(L"*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+						_webviewWindow->add_WebResourceRequested(Callback<ICoreWebView2WebResourceRequestedEventHandler>(
+							[this](ICoreWebView2* sender, ICoreWebView2WebResourceRequestedEventArgs* args)
 							{
-								IWebView2WebResourceRequest* req;
+								ICoreWebView2WebResourceRequest* req;
 								args->get_Request(&req);
 
 								wil::unique_cotaskmem_string uri;
@@ -268,7 +301,7 @@ void WebWindow::AttachWebView()
 											std::wstring contentTypeWS = contentType;
 
 											IStream* dataStream = SHCreateMemStream((BYTE*)dotNetResponse.get(), numBytes);
-											wil::com_ptr<IWebView2WebResourceResponse> response;
+											wil::com_ptr<ICoreWebView2WebResourceResponse> response;
 											_webviewEnvironment->CreateWebResourceResponse(
 												dataStream, 200, L"OK", (L"Content-Type: " + contentTypeWS).c_str(),
 												&response);
@@ -407,8 +440,10 @@ void WebWindow::SetIconFile(AutoString filename)
 	}
 }
 
-
 void WebWindow::ShowNotification(AutoString title, AutoString message)
 {
-	//TODO: Implement Windows notifications
+	WinToastTemplate templ = WinToastTemplate(WinToastTemplate::Text02);
+	templ.setTextField(title, WinToastTemplate::FirstLine);
+	templ.setTextField(message, WinToastTemplate::SecondLine);
+	WinToast::instance()->showToast(templ, this->toastHandler);
 }
